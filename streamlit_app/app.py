@@ -118,6 +118,102 @@ def render_overview_metrics(df: pl.DataFrame):
         st.metric("Total Goals", total_goals)
 
 
+def aggregate_by_player(df: pl.DataFrame) -> pl.DataFrame:
+    """
+    Aggregate player data by player, calculating totals and averages.
+
+    Args:
+        df: DataFrame with player gameweek data
+
+    Returns:
+        Aggregated DataFrame grouped by player
+    """
+    if len(df) == 0:
+        return df
+
+    aggregated = df.group_by(["web_name", "team", "element_type"]).agg([
+        pl.col("round").count().alias("gameweeks"),
+        pl.col("minutes").sum().alias("total_minutes"),
+        pl.col("minutes").mean().alias("avg_minutes"),
+        pl.col("goals_scored").sum().alias("total_goals"),
+        pl.col("goals_scored").mean().alias("avg_goals"),
+        pl.col("assists").sum().alias("total_assists"),
+        pl.col("assists").mean().alias("avg_assists"),
+        pl.col("total_points").sum().alias("total_points"),
+        pl.col("total_points").mean().alias("avg_points"),
+        pl.col("expected_goals").sum().alias("total_xG"),
+        pl.col("expected_goals").mean().alias("avg_xG"),
+        pl.col("expected_assists").sum().alias("total_xA"),
+        pl.col("expected_assists").mean().alias("avg_xA"),
+        pl.col("expected_goal_involvements").sum().alias("total_xGI"),
+        pl.col("expected_goal_involvements").mean().alias("avg_xGI"),
+    ])
+
+    return aggregated
+
+
+def render_player_summary(df: pl.DataFrame):
+    """
+    Render player summary table with totals and averages.
+
+    Args:
+        df: Aggregated DataFrame grouped by player
+    """
+    if len(df) == 0:
+        st.warning("No data matches the selected filters.")
+        return
+
+    # Convert to pandas for display
+    display_df = df.to_pandas()
+
+    # Add team and position names
+    display_df['Team'] = display_df['team'].apply(get_team_name)
+    display_df['Position'] = display_df['element_type'].apply(get_position_name)
+
+    # Select and order columns for display
+    display_df = display_df[[
+        'web_name', 'Team', 'Position', 'gameweeks',
+        'total_minutes', 'avg_minutes',
+        'total_goals', 'avg_goals',
+        'total_assists', 'avg_assists',
+        'total_points', 'avg_points',
+        'total_xG', 'avg_xG',
+        'total_xA', 'avg_xA',
+        'total_xGI', 'avg_xGI'
+    ]]
+
+    # Sort by total points descending
+    display_df = display_df.sort_values('total_points', ascending=False)
+
+    # Display with Streamlit dataframe
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        height=600,
+        column_config={
+            "web_name": st.column_config.TextColumn("Player", width="medium"),
+            "Team": st.column_config.TextColumn("Team", width="small"),
+            "Position": st.column_config.TextColumn("Pos", width="small"),
+            "gameweeks": st.column_config.NumberColumn("GWs", format="%d"),
+            "total_minutes": st.column_config.NumberColumn("Total Mins", format="%d"),
+            "avg_minutes": st.column_config.NumberColumn("Avg Mins", format="%.1f"),
+            "total_goals": st.column_config.NumberColumn("Total Goals", format="%d"),
+            "avg_goals": st.column_config.NumberColumn("Avg Goals", format="%.2f"),
+            "total_assists": st.column_config.NumberColumn("Total Assists", format="%d"),
+            "avg_assists": st.column_config.NumberColumn("Avg Assists", format="%.2f"),
+            "total_points": st.column_config.NumberColumn("Total Pts", format="%d"),
+            "avg_points": st.column_config.NumberColumn("Avg Pts", format="%.2f"),
+            "total_xG": st.column_config.NumberColumn("Total xG", format="%.2f"),
+            "avg_xG": st.column_config.NumberColumn("Avg xG", format="%.2f"),
+            "total_xA": st.column_config.NumberColumn("Total xA", format="%.2f"),
+            "avg_xA": st.column_config.NumberColumn("Avg xA", format="%.2f"),
+            "total_xGI": st.column_config.NumberColumn("Total xGI", format="%.2f"),
+            "avg_xGI": st.column_config.NumberColumn("Avg xGI", format="%.2f"),
+        },
+        hide_index=True
+    )
+
+
 def render_data_table(df: pl.DataFrame):
     """
     Render the main data table with formatted columns.
@@ -251,19 +347,39 @@ def main():
 
     st.markdown("---")
 
-    # Data table
-    st.subheader(f"Player Performance by Gameweek")
-    render_data_table(filtered_df)
+    # Create tabs for different views
+    tab1, tab2 = st.tabs(["📅 By Gameweek", "👤 Player Summary"])
 
-    # Download button
-    if len(filtered_df) > 0:
-        csv = filtered_df.to_pandas().to_csv(index=False)
-        st.download_button(
-            label="📥 Download CSV",
-            data=csv,
-            file_name=f"fpl_data_{selected_date}.csv",
-            mime="text/csv"
-        )
+    with tab1:
+        st.subheader(f"Player Performance by Gameweek")
+        render_data_table(filtered_df)
+
+        # Download button
+        if len(filtered_df) > 0:
+            csv = filtered_df.to_pandas().to_csv(index=False)
+            st.download_button(
+                label="📥 Download Gameweek Data CSV",
+                data=csv,
+                file_name=f"fpl_gameweek_data_{selected_date}.csv",
+                mime="text/csv"
+            )
+
+    with tab2:
+        st.subheader(f"Player Summary (Totals & Averages)")
+
+        # Aggregate data by player
+        player_summary = aggregate_by_player(filtered_df)
+        render_player_summary(player_summary)
+
+        # Download button for aggregated data
+        if len(player_summary) > 0:
+            csv = player_summary.to_pandas().to_csv(index=False)
+            st.download_button(
+                label="📥 Download Player Summary CSV",
+                data=csv,
+                file_name=f"fpl_player_summary_{selected_date}.csv",
+                mime="text/csv"
+            )
 
 
 if __name__ == "__main__":
