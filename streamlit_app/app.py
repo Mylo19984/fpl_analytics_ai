@@ -56,22 +56,7 @@ def apply_filters(
 
     # Team filter
     if team != "All":
-        # Extract team ID from "Team Name" or "Team X" string
-        if team.startswith("Team "):
-            team_id = int(team.replace("Team ", ""))
-        else:
-            # Reverse lookup team name to ID
-            team_map_reverse = {v: k for k, v in {
-                1: "Arsenal", 2: "Aston Villa", 3: "Bournemouth", 4: "Brentford",
-                5: "Brighton", 6: "Chelsea", 7: "Crystal Palace", 8: "Everton",
-                9: "Fulham", 10: "Ipswich", 11: "Leicester", 12: "Liverpool",
-                13: "Man City", 14: "Man Utd", 15: "Newcastle", 16: "Nott'm Forest",
-                17: "Southampton", 18: "Spurs", 19: "West Ham", 20: "Wolves"
-            }.items()}
-            team_id = team_map_reverse.get(team, 0)
-
-        if team_id > 0:
-            filtered = filtered.filter(pl.col("team") == team_id)
+            filtered = filtered.filter(pl.col("short_name") == team)
 
     # GW name filter
     
@@ -323,8 +308,13 @@ def main():
     position = st.sidebar.selectbox("Position", position_options)
 
     # Team filter
-    unique_teams = df.select("team").unique().sort("team")
-    team_names = ["All"] + [get_team_name(t) for t in unique_teams["team"].to_list()]
+    #unique_teams = df.select("team").unique().sort("team")
+    #team_names = ["All"] + [get_team_name(t) for t in unique_teams["team"].to_list()]
+    #team = st.sidebar.selectbox("Team", team_names)
+
+    # Team 2nd filter
+    unique_teams = df.select("short_name").unique().sort("short_name")
+    team_names = ["All"] + [t for t in unique_teams["short_name"].to_list()]
     team = st.sidebar.selectbox("Team", team_names)
 
     # GW filter, updated to mulyieselect

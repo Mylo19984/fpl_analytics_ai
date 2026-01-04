@@ -63,10 +63,14 @@ def load_fpl_data(date: str) -> pl.DataFrame:
     # Define paths
     bootstrap_path = f"./data/bootstrap_static/date={date}/data.parquet"
     history_path = f"./data/player_history/date={date}/*.parquet"
+    team_path = f"./data/teams/date={date}/data.parquet"
 
     # Check if bootstrap file exists
     if not Path(bootstrap_path).exists():
         raise FileNotFoundError(f"Bootstrap data not found for date {date}")
+
+    if not Path(team_path).exists():
+        raise FileNotFoundError(f"Team data not found for date {date}")
 
     # Check if history directory exists
     history_dir = Path(f"./data/player_history/date={date}")
@@ -99,8 +103,17 @@ def load_fpl_data(date: str) -> pl.DataFrame:
             how="left"
         )
 
+        team = pl.read_parquet(team_path)
+
+        df_final = df.join(
+            team,
+            left_on="team",
+            right_on="id",
+            how="left"
+        )
+
         # Select and order final columns
-        result = df.select([
+        result = df_final.select([
             "player_id",
             "web_name",
             "team",
@@ -115,7 +128,8 @@ def load_fpl_data(date: str) -> pl.DataFrame:
             "expected_goal_involvements",
             "opponent_team",
             "was_home",
-            "kickoff_time"
+            "kickoff_time",
+            "short_name"
         ])
 
         return result

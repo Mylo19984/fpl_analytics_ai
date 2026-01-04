@@ -160,6 +160,58 @@ class ParquetManager:
         logger.debug(f"Found {len(player_ids)} player files for {date}")
         return player_ids
 
+    def write_teams(self, data: pl.DataFrame, date: str):
+        """
+        Write teams data to Parquet file.
+
+        Args:
+            data: Polars DataFrame with teams data
+            date: Date string in YYYY-MM-DD format
+        """
+        partition_path = self._get_partition_path(
+            config.storage.teams_path, date
+        )
+        self._ensure_directory(partition_path)
+
+        file_path = partition_path / "data.parquet"
+
+        try:
+            data.write_parquet(
+                file_path,
+                compression=self.compression
+            )
+            logger.info(f"Wrote teams data to {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to write teams data: {str(e)}")
+            raise
+
+    def read_teams(self, date: str) -> Optional[pl.DataFrame]:
+        """
+        Read teams data from Parquet file.
+
+        Args:
+            date: Date string in YYYY-MM-DD format
+
+        Returns:
+            Polars DataFrame or None if file doesn't exist
+        """
+        partition_path = self._get_partition_path(
+            config.storage.teams_path, date
+        )
+        file_path = partition_path / "data.parquet"
+
+        if not file_path.exists():
+            logger.debug(f"Teams data not found for {date}")
+            return None
+
+        try:
+            df = pl.read_parquet(file_path)
+            logger.info(f"Read teams data from {file_path}")
+            return df
+        except Exception as e:
+            logger.error(f"Failed to read teams data: {str(e)}")
+            raise
+
     def get_latest_partition_date(self, base_path: Path) -> Optional[str]:
         """
         Get the most recent partition date.

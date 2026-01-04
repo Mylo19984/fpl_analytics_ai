@@ -191,3 +191,61 @@ class DataProcessor:
 
         logger.debug(f"Created bootstrap map for {len(player_map)} players")
         return player_map
+
+    def process_teams(self, raw_data: Dict[str, Any], fetch_date: str) -> pl.DataFrame:
+        """
+        Process teams data from bootstrap-static API response.
+
+        Args:
+            raw_data: Raw JSON response from bootstrap-static endpoint
+            fetch_date: Date of fetch in YYYY-MM-DD format
+
+        Returns:
+            Polars DataFrame with teams data from 'teams' array
+        """
+        teams = raw_data.get("teams", [])
+
+        if not teams:
+            logger.error("No teams found in bootstrap-static data")
+            raise ValueError("No teams in bootstrap-static response")
+
+        try:
+            # Convert to DataFrame
+            df = pl.DataFrame(teams)
+
+            # Add fetch date
+            df = df.with_columns([
+                pl.lit(fetch_date).alias("fetch_date")
+            ])
+
+            # Ensure numeric fields are proper types
+            int_fields = [
+                "id", "code", "draw", "form", "loss", "played",
+                "points", "position", "strength", "win",
+                "strength_overall_home", "strength_overall_away",
+                "strength_attack_home", "strength_attack_away",
+                "strength_defence_home", "strength_defence_away",
+                "pulse_id"
+            ]
+
+            for field in int_fields:
+                if field in df.columns:
+                    df = df.with_columns([
+                        pl.col(field).cast(pl.Int64, strict=False)
+                    ])
+
+            # Boolean fields
+            bool_fields = ["unavailable"]
+
+            for field in bool_fields:
+                if field in df.columns:
+                    df = df.with_columns([
+                        pl.col(field).cast(pl.Boolean, strict=False)
+                    ])
+
+            logger.info(f"Processed teams data: {len(df)} teams")
+            return df
+
+        except Exception as e:
+            logger.error(f"Failed to process teams data: {str(e)}")
+            raise

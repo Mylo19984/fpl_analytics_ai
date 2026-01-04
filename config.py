@@ -28,6 +28,10 @@ class StorageConfig:
         return self.data_root / "bootstrap_static"
 
     @property
+    def teams_path(self) -> Path:
+        return self.data_root / "teams"
+
+    @property
     def metadata_path(self) -> Path:
         return self.data_root / "metadata"
 

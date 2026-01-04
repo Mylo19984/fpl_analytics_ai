@@ -96,9 +96,13 @@ class DataFetcher:
             bootstrap_data = self.api_client.get_bootstrap_static()
             report.bootstrap_fetched = True
 
-            # Process bootstrap data
+            # Process bootstrap data (players)
             bootstrap_df = self.processor.process_bootstrap_static(bootstrap_data, date)
             self.parquet_manager.write_bootstrap_static(bootstrap_df, date)
+
+            # Process teams data
+            teams_df = self.processor.process_teams(bootstrap_data, date)
+            self.parquet_manager.write_teams(teams_df, date)
 
             # Extract player map
             player_map = self.processor.extract_player_bootstrap_map(bootstrap_df)
