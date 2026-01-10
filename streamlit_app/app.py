@@ -137,6 +137,81 @@ def aggregate_by_player(df: pl.DataFrame) -> pl.DataFrame:
     return aggregated
 
 
+def aggregate_performance_metrics(
+    filtered_df: pl.DataFrame,
+    unfiltered_df: pl.DataFrame
+) -> pl.DataFrame:
+    """
+    Aggregate performance metrics by player with focus on consistency and point averages.
+
+    Args:
+        filtered_df: DataFrame with GW filter applied (for last 6/10 calculations)
+        unfiltered_df: Full season data (for season-wide calculations)
+
+    Returns:
+        Aggregated DataFrame with performance metrics per player
+    """
+    if len(filtered_df) == 0:
+        return filtered_df
+
+    # Process each player separately to calculate "last N gameweeks" metrics
+    players = []
+
+    for player_name in filtered_df.select("web_name").unique()["web_name"]:
+        player_df = filtered_df.filter(pl.col("web_name") == player_name)
+
+        # Sort by round to get chronological order
+        player_df = player_df.sort("round")
+
+        # Get player metadata (from first row)
+        team = player_df["short_name"][0]
+        element_type = player_df["element_type"][0]
+
+        # Total and average points
+        total_points = player_df["total_points"].sum()
+        avg_points = player_df["total_points"].mean()
+
+        # Average points for games >55 minutes
+        games_55min = player_df.filter(pl.col("minutes") > 55)
+        if len(games_55min) > 0:
+            avg_points_55min = games_55min["total_points"].mean()
+        else:
+            avg_points_55min = None
+
+        # Get last 6 and 10 gameweeks
+        last_6 = player_df.tail(6)
+        last_10 = player_df.tail(10)
+
+        # Count games >6 and >10 points
+        games_6pts_last6 = len(last_6.filter(pl.col("total_points") > 6))
+        games_10pts_last6 = len(last_6.filter(pl.col("total_points") > 10))
+        games_6pts_last10 = len(last_10.filter(pl.col("total_points") > 6))
+        games_10pts_last10 = len(last_10.filter(pl.col("total_points") > 10))
+
+        # Season-wide metrics from unfiltered data
+        player_season = unfiltered_df.filter(pl.col("web_name") == player_name)
+        games_6pts_season = len(player_season.filter(pl.col("total_points") > 6))
+
+        players.append({
+            "web_name": player_name,
+            "team": team,
+            "element_type": element_type,
+            "total_points": total_points,
+            "avg_points": avg_points,
+            "avg_points_55min": avg_points_55min,
+            "games_6pts_last6": games_6pts_last6,
+            "games_10pts_last6": games_10pts_last6,
+            "games_6pts_last10": games_6pts_last10,
+            "games_10pts_last10": games_10pts_last10,
+            "games_6pts_season": games_6pts_season,
+        })
+
+    # Convert to Polars DataFrame
+    result = pl.DataFrame(players)
+
+    return result
+
+
 def render_player_summary(df: pl.DataFrame):
     """
     Render player summary table with totals and averages.
@@ -152,7 +227,7 @@ def render_player_summary(df: pl.DataFrame):
     display_df = df.to_pandas()
 
     # Add team and position names
-    display_df['Team'] = display_df['team'].apply(get_team_name)
+    display_df['Team'] = display_df['team']
     display_df['Position'] = display_df['element_type'].apply(get_position_name)
 
     # Select and order columns for display
@@ -194,6 +269,60 @@ def render_player_summary(df: pl.DataFrame):
             "avg_xA": st.column_config.NumberColumn("Avg xA", format="%.2f"),
             "total_xGI": st.column_config.NumberColumn("Total xGI", format="%.2f"),
             "avg_xGI": st.column_config.NumberColumn("Avg xGI", format="%.2f"),
+        },
+        hide_index=True
+    )
+
+
+def render_performance_metrics(df: pl.DataFrame):
+    """
+    Render performance metrics table with consistency and point average stats.
+
+    Args:
+        df: Aggregated DataFrame with performance metrics
+    """
+    if len(df) == 0:
+        st.warning("No data matches the selected filters.")
+        return
+
+    # Convert to pandas for display
+    display_df = df.to_pandas()
+
+    # Add team and position names
+    display_df['Team'] = display_df['team']
+    display_df['Position'] = display_df['element_type'].apply(get_position_name)
+
+    # Select and order columns for display
+    display_df = display_df[[
+        'web_name', 'Team', 'Position',
+        'total_points', 'avg_points', 'avg_points_55min',
+        'games_6pts_last6', 'games_6pts_last10', 'games_6pts_season',
+        'games_10pts_last6', 'games_10pts_last10'
+    ]]
+
+    # Sort by games >6pts in last 6 GW descending, then total points
+    display_df = display_df.sort_values(
+        ['games_6pts_last6', 'total_points'],
+        ascending=[False, False]
+    )
+
+    # Display with Streamlit dataframe
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        height=600,
+        column_config={
+            "web_name": st.column_config.TextColumn("Player", width="medium"),
+            "Team": st.column_config.TextColumn("Team", width="small"),
+            "Position": st.column_config.TextColumn("Pos", width="small"),
+            "total_points": st.column_config.NumberColumn("Total Pts", format="%d"),
+            "avg_points": st.column_config.NumberColumn("Avg Pts", format="%.2f"),
+            "avg_points_55min": st.column_config.NumberColumn("Avg Pts (>55m)", format="%.2f"),
+            "games_6pts_last6": st.column_config.NumberColumn(">6pts (L6)", format="%d"),
+            "games_6pts_last10": st.column_config.NumberColumn(">6pts (L10)", format="%d"),
+            "games_6pts_season": st.column_config.NumberColumn(">6pts (Season)", format="%d"),
+            "games_10pts_last6": st.column_config.NumberColumn(">10pts (L6)", format="%d"),
+            "games_10pts_last10": st.column_config.NumberColumn(">10pts (L10)", format="%d"),
         },
         hide_index=True
     )
@@ -286,7 +415,9 @@ def main():
     # Load data
     try:
         with st.spinner(f"Loading data for {selected_date}..."):
-            df = load_fpl_data(selected_date)
+            # Store unfiltered copy for season metrics
+            df_unfiltered = load_fpl_data(selected_date)
+            df = df_unfiltered  # Base for filtering
     except FileNotFoundError as e:
         st.error(f"Data not found: {str(e)}")
         return
@@ -326,6 +457,13 @@ def main():
     # Apply filters
     filtered_df = apply_filters(df, player_name, position, team, gw)
 
+    # Create unfiltered version (only player/position/team filters, no GW filter)
+    # This is for season-wide metrics
+    all_gws = df_unfiltered.select("round").unique()["round"].to_list()
+    unfiltered_with_filters = apply_filters(
+        df_unfiltered, player_name, position, team, all_gws
+    )
+
     # Display record count in sidebar
     st.sidebar.metric("Records", f"{len(filtered_df):,}")
 
@@ -338,7 +476,11 @@ def main():
     st.markdown("---")
 
     # Create tabs for different views
-    tab1, tab2 = st.tabs(["📅 By Gameweek", "👤 Player Summary"])
+    tab1, tab2, tab3 = st.tabs([
+        "📅 By Gameweek",
+        "👤 Player Summary",
+        "📈 Performance Metrics"
+    ])
 
     with tab1:
         st.subheader(f"Player Performance by Gameweek")
@@ -368,6 +510,29 @@ def main():
                 label="📥 Download Player Summary CSV",
                 data=csv,
                 file_name=f"fpl_player_summary_{selected_date}.csv",
+                mime="text/csv"
+            )
+
+    with tab3:
+        st.subheader("Performance Metrics")
+
+        # Calculate performance metrics
+        performance_metrics = aggregate_performance_metrics(
+            unfiltered_with_filters,
+            #filtered_df,
+            unfiltered_with_filters
+        )
+
+        # Render table
+        render_performance_metrics(performance_metrics)
+
+        # Download button
+        if len(performance_metrics) > 0:
+            csv = performance_metrics.to_pandas().to_csv(index=False)
+            st.download_button(
+                label="📥 Download Performance Metrics CSV",
+                data=csv,
+                file_name=f"fpl_performance_metrics_{selected_date}.csv",
                 mime="text/csv"
             )
 
