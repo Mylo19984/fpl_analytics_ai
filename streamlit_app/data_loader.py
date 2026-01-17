@@ -89,6 +89,7 @@ def load_fpl_data(date: str) -> pl.DataFrame:
             "second_name",
             "team",
             "element_type"
+            ,"now_cost"
         ])
 
         # Load ALL player history files using glob pattern
@@ -112,6 +113,9 @@ def load_fpl_data(date: str) -> pl.DataFrame:
             how="left"
         )
 
+        print('!!!')
+        print(f'df_final.columns: {df_final.columns}')
+
         # Select and order final columns
         result = df_final.select([
             "player_id",
@@ -129,7 +133,10 @@ def load_fpl_data(date: str) -> pl.DataFrame:
             "opponent_team",
             "was_home",
             "kickoff_time",
-            "short_name"
+            "short_name",
+            "now_cost",
+            "starts",
+            "defensive_contribution"
         ])
 
         return result

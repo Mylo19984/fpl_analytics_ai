@@ -163,9 +163,18 @@ def aggregate_performance_metrics(
         # Sort by round to get chronological order
         player_df = player_df.sort("round")
 
+        # temp print
+        #print(f'player_df.columns: {player_df.columns}')
+
         # Get player metadata (from first row)
         team = player_df["short_name"][0]
         element_type = player_df["element_type"][0]
+
+        # Get cost
+        cost = player_df["now_cost"][0]/10
+        starts = player_df["starts"].sum()
+
+        defensive_contribution = player_df["defensive_contribution"].sum() /12
 
         # Total and average points
         total_points = player_df["total_points"].sum()
@@ -192,10 +201,14 @@ def aggregate_performance_metrics(
         player_season = unfiltered_df.filter(pl.col("web_name") == player_name)
         games_6pts_season = len(player_season.filter(pl.col("total_points") > 6))
 
+        
+
         players.append({
             "web_name": player_name,
             "team": team,
             "element_type": element_type,
+            "cost": cost,
+            "starts": starts,
             "total_points": total_points,
             "avg_points": avg_points,
             "avg_points_55min": avg_points_55min,
@@ -204,6 +217,7 @@ def aggregate_performance_metrics(
             "games_6pts_last10": games_6pts_last10,
             "games_10pts_last10": games_10pts_last10,
             "games_6pts_season": games_6pts_season,
+            "defensive_contribution": defensive_contribution,
         })
 
     # Convert to Polars DataFrame
@@ -294,10 +308,10 @@ def render_performance_metrics(df: pl.DataFrame):
 
     # Select and order columns for display
     display_df = display_df[[
-        'web_name', 'Team', 'Position',
+        'web_name', 'Team', 'Position', 'cost', 'starts',
         'total_points', 'avg_points', 'avg_points_55min',
         'games_6pts_last6', 'games_6pts_last10', 'games_6pts_season',
-        'games_10pts_last6', 'games_10pts_last10'
+        'games_10pts_last6', 'games_10pts_last10', 'defensive_contribution'
     ]]
 
     # Sort by games >6pts in last 6 GW descending, then total points
@@ -315,6 +329,8 @@ def render_performance_metrics(df: pl.DataFrame):
             "web_name": st.column_config.TextColumn("Player", width="medium"),
             "Team": st.column_config.TextColumn("Team", width="small"),
             "Position": st.column_config.TextColumn("Pos", width="small"),
+            "cost": st.column_config.TextColumn("Cost", width="small"),
+            "starts": st.column_config.TextColumn("Total starts", width="small"),
             "total_points": st.column_config.NumberColumn("Total Pts", format="%d"),
             "avg_points": st.column_config.NumberColumn("Avg Pts", format="%.2f"),
             "avg_points_55min": st.column_config.NumberColumn("Avg Pts (>55m)", format="%.2f"),
@@ -323,6 +339,7 @@ def render_performance_metrics(df: pl.DataFrame):
             "games_6pts_season": st.column_config.NumberColumn(">6pts (Season)", format="%d"),
             "games_10pts_last6": st.column_config.NumberColumn(">10pts (L6)", format="%d"),
             "games_10pts_last10": st.column_config.NumberColumn(">10pts (L10)", format="%d"),
+            "defensive_contribution": st.column_config.NumberColumn("DefCon", format="%d"),
         },
         hide_index=True
     )
@@ -463,6 +480,9 @@ def main():
     unfiltered_with_filters = apply_filters(
         df_unfiltered, player_name, position, team, all_gws
     )
+
+    print('!!!')
+    print(f'Filtered DF rows: {unfiltered_with_filters.columns}')
 
     # Display record count in sidebar
     st.sidebar.metric("Records", f"{len(filtered_df):,}")
