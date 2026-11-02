@@ -32,6 +32,10 @@ class StorageConfig:
         return self.data_root / "teams"
 
     @property
+    def fixtures_path(self) -> Path:
+        return self.data_root / "fixtures"
+
+    @property
     def metadata_path(self) -> Path:
         return self.data_root / "metadata"
 
@@ -56,12 +60,27 @@ class LoggingConfig:
 
 
 @dataclass
+class WatchlistConfig:
+    """Watchlist scoring settings"""
+    history_window: int = 5  # last N gameweeks used for form
+    fixture_window: int = 5  # next N fixtures used for FDR (3 to 5)
+    top_n: int = 5  # players shown per position
+    min_starts: int = 3  # min starts within the history window
+    reliable_minutes: int = 60  # minutes that count as a reliable appearance
+    weight_points: float = 0.4
+    weight_xg: float = 0.3
+    weight_fixtures: float = 0.2
+    weight_minutes: float = 0.1
+
+
+@dataclass
 class Config:
     """Main configuration container"""
     api: APIConfig = field(default_factory=APIConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    watchlist: WatchlistConfig = field(default_factory=WatchlistConfig)
 
 
 # Global config instance

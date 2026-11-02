@@ -212,6 +212,31 @@ class ParquetManager:
             logger.error(f"Failed to read teams data: {str(e)}")
             raise
 
+    def write_fixtures(self, data: pl.DataFrame, date: str):
+        """
+        Write fixtures data to Parquet file.
+
+        Args:
+            data: Polars DataFrame with fixtures
+            date: Date string in YYYY-MM-DD format
+        """
+        partition_path = self._get_partition_path(
+            config.storage.fixtures_path, date
+        )
+        self._ensure_directory(partition_path)
+
+        file_path = partition_path / "data.parquet"
+
+        try:
+            data.write_parquet(
+                file_path,
+                compression=self.compression
+            )
+            logger.info(f"Wrote fixtures data to {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to write fixtures data: {str(e)}")
+            raise
+
     def get_latest_partition_date(self, base_path: Path) -> Optional[str]:
         """
         Get the most recent partition date.

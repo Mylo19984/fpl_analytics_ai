@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 import polars as pl
 from src.utils.logger import setup_logger
@@ -191,6 +191,37 @@ class DataProcessor:
 
         logger.debug(f"Created bootstrap map for {len(player_map)} players")
         return player_map
+
+    def process_fixtures(self, raw_fixtures: List[Dict[str, Any]], fetch_date: str) -> pl.DataFrame:
+        """
+        Process fixtures from the fixtures API response.
+
+        Args:
+            raw_fixtures: Raw JSON list from the fixtures endpoint
+            fetch_date: Date of fetch in YYYY-MM-DD format
+
+        Returns:
+            Polars DataFrame with one row per fixture
+        """
+        if not raw_fixtures:
+            raise ValueError("No fixtures in fixtures response")
+
+        columns = [
+            "id", "event", "team_h", "team_a", "team_h_difficulty",
+            "team_a_difficulty", "finished", "kickoff_time"
+        ]
+        rows = [{c: f.get(c) for c in columns} for f in raw_fixtures]
+        df = pl.DataFrame(rows, schema={
+            "id": pl.Int64, "event": pl.Int64, "team_h": pl.Int64, "team_a": pl.Int64,
+            "team_h_difficulty": pl.Int64, "team_a_difficulty": pl.Int64,
+            "finished": pl.Boolean, "kickoff_time": pl.Utf8
+        })
+        df = df.with_columns([
+            pl.col("kickoff_time").str.strptime(pl.Datetime, format="%Y-%m-%dT%H:%M:%SZ", strict=False),
+            pl.lit(fetch_date).alias("fetch_date")
+        ])
+        logger.info(f"Processed fixtures: {len(df)} fixtures")
+        return df
 
     def process_teams(self, raw_data: Dict[str, Any], fetch_date: str) -> pl.DataFrame:
         """

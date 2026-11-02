@@ -104,6 +104,13 @@ class DataFetcher:
             teams_df = self.processor.process_teams(bootstrap_data, date)
             self.parquet_manager.write_teams(teams_df, date)
 
+            # Fetch fixtures (used by the watchlist). A failure here must not stop the player fetch
+            try:
+                fixtures_df = self.processor.process_fixtures(self.api_client.get_fixtures(), date)
+                self.parquet_manager.write_fixtures(fixtures_df, date)
+            except Exception as e:
+                logger.warning(f"Could not fetch fixtures, watchlist will be unavailable: {str(e)}")
+
             # Extract player map
             player_map = self.processor.extract_player_bootstrap_map(bootstrap_df)
             all_player_ids = list(player_map.keys())

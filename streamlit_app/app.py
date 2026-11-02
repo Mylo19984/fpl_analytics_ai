@@ -6,6 +6,7 @@ Main entry point for the web interface
 import streamlit as st
 import polars as pl
 from pathlib import Path
+from watchlist_tab import render_watchlist_tab
 from data_loader import (
     get_available_dates,
     get_latest_date,
@@ -496,10 +497,11 @@ def main():
     st.markdown("---")
 
     # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📅 By Gameweek",
         "👤 Player Summary",
-        "📈 Performance Metrics"
+        "📈 Performance Metrics",
+        "🔭 Watchlist"
     ])
 
     with tab1:
@@ -555,6 +557,9 @@ def main():
                 file_name=f"fpl_performance_metrics_{selected_date}.csv",
                 mime="text/csv"
             )
+
+    with tab4:
+        render_watchlist_tab()
 
 
 if __name__ == "__main__":

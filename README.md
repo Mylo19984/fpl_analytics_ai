@@ -313,3 +313,7 @@ All data is sourced from the official Fantasy Premier League API:
 https://fantasy.premierleague.com/api/
 
 Please be respectful of the API and don't modify rate limiting settings to be more aggressive.
+
+## Watchlist tab
+
+The Streamlit app has a "Watchlist" tab with the top 5 defenders, midfielders and forwards to consider transferring in. It always uses the latest fetched data (run `python main.py fetch-updates` first, which also fetches fixtures). Scoring weights and windows live in `config.py` (`WatchlistConfig`). Design: see `DESIGN.md` in the claude-grill-me folder. Run the tests with `python -m pytest`.

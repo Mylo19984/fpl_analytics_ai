@@ -1,6 +1,6 @@
 import time
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -115,6 +115,18 @@ class FPLAPIClient:
         except Exception as e:
             logger.error(f"Failed to fetch bootstrap-static: {str(e)}")
             raise
+
+    def get_fixtures(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all fixtures for the season.
+
+        Returns:
+            List of fixture dictionaries (event, team_h, team_a, difficulty, finished, ...)
+        """
+        logger.info("Fetching fixtures")
+        data = self._request(endpoints.FIXTURES)
+        logger.info(f"Successfully fetched fixtures ({len(data)} fixtures)")
+        return data
 
     def get_player_summary(self, player_id: int) -> Dict[str, Any]:
         """

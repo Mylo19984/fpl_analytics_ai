@@ -1,6 +1,7 @@
 """FPL API endpoint definitions"""
 
 BOOTSTRAP_STATIC = "bootstrap-static/"
+FIXTURES = "fixtures/"
 PLAYER_SUMMARY = "element-summary/{player_id}/"
 
 
