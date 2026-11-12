@@ -3,6 +3,7 @@ Watchlist tab: top players per position to consider transferring in.
 Always uses the latest stored snapshot (see DESIGN.md).
 """
 
+import io
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import streamlit as st
 import polars as pl
 from src.watchlist.loader import load_watchlist_inputs
+from src.watchlist.insights import generate_pros_cons
 from src.watchlist.scoring import build_watchlist, next_gameweek, DEFENDER, MIDFIELDER, FORWARD
 
 SECTIONS = [
@@ -28,6 +30,12 @@ def _load_watchlist():
         return None
     date, players, history, fixtures, teams = inputs
     return date, next_gameweek(fixtures), build_watchlist(players, history, fixtures, teams)
+
+
+@st.cache_data(ttl=3600, show_spinner="Generating AI pros & cons…")
+def _pros_cons(section_json: str, xg_label: str) -> dict[str, dict[str, str]]:
+    # JSON string is hashable (polars DataFrames are not) and serves as the cache key
+    return generate_pros_cons(pl.read_json(io.StringIO(section_json)), xg_label)
 
 
 def render_watchlist_tab():
@@ -47,6 +55,15 @@ def render_watchlist_tab():
             .drop("element_type")
             .with_columns(pl.col("minutes_reliability") * 100)
         )
+        try:
+            notes = _pros_cons(section.write_json(row_oriented=True), xg_label)
+        except Exception as e:
+            notes = {}
+            st.caption(f"AI pros/cons unavailable: {e}")
+        section = section.with_columns(
+            pl.col("web_name").map_elements(lambda n: notes.get(n, {}).get("pros", ""), return_dtype=pl.Utf8).alias("pros"),
+            pl.col("web_name").map_elements(lambda n: notes.get(n, {}).get("cons", ""), return_dtype=pl.Utf8).alias("cons"),
+        )
         st.dataframe(
             section.to_pandas(),
             hide_index=True,
@@ -61,5 +78,7 @@ def render_watchlist_tab():
                 "xg_p90": st.column_config.NumberColumn(xg_label, format="%.2f"),
                 "avg_fdr": st.column_config.NumberColumn("Avg FDR", format="%.1f"),
                 "minutes_reliability": st.column_config.NumberColumn("60+ min share", format="%.0f%%"),
+                "pros": st.column_config.TextColumn("✅ AI pros", width="large"),
+                "cons": st.column_config.TextColumn("❌ AI cons", width="large"),
             },
         )

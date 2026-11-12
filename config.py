@@ -64,7 +64,7 @@ class WatchlistConfig:
     """Watchlist scoring settings"""
     history_window: int = 5  # last N gameweeks used for form
     fixture_window: int = 5  # next N fixtures used for FDR (3 to 5)
-    top_n: int = 5  # players shown per position
+    top_n: int = 7  # players shown per position
     min_starts: int = 3  # min starts within the history window
     reliable_minutes: int = 60  # minutes that count as a reliable appearance
     weight_points: float = 0.4

@@ -4,11 +4,11 @@ Base repo: https://github.com/Mylo19984/fpl_analytics_ai
 
 ## Goal
 
-A "Watchlist" tab in the existing Streamlit app. It suggests the 5 best players per position to consider transferring in before the next deadline.
+A "Watchlist" tab in the existing Streamlit app. It suggests the 7 best players per position to consider transferring in before the next deadline.
 
 ## Scope
 
-- DEF, MID and FWD only, 5 players each. No goalkeepers.
+- DEF, MID and FWD only, 7 players each. No goalkeepers.
 - A general list, not tied to your squad. No price cap or controls.
 - The same for everyone, and read-only.
 
